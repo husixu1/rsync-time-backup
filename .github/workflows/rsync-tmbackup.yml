@@ -1,0 +1,98 @@
+name: Testing commits
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    env:
+      BASH_UNIT_VER: v2.1.0
+      SHFMT_VER: v3.7.0
+      RSYNC_VER: 3.2
+      BUNDLE_DEPLOYMENT: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+      - name: Check out pull-request head
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+        if: github.event_name == 'pull_request'
+      - name: Cache Dependencies
+        id: cache-deps
+        uses: actions/cache@v3
+        with:
+          path: deps
+          key: ${{runner.os}}-deps-${{env.BASH_UNIT_VER}}-${{env.SHFMT_VER}}
+      - name: Setup bashcov
+        run: |
+          mkdir -p deps && cd deps
+          echo "# frozen_string_literal: true
+          source 'https://rubygems.org'
+          gem 'bashcov', '~> 3.1', '>= 3.1.1'
+          gem 'simplecov'
+          gem 'simplecov-cobertura'
+          " > Gemfile
+          rm -rf Gemfile.lock
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.0'
+          bundler-cache: true
+          working-directory: deps
+      - name: Install dependencies
+        run: |
+          mkdir -p deps && cd deps
+          # cache bash_unit and shfmt
+          curl -k -sSL "https://raw.githubusercontent.com/pgrange/bash_unit/${BASH_UNIT_VER}/install.sh" | bash
+          curl -k -sSL "https://github.com/mvdan/sh/releases/download/${SHFMT_VER}/shfmt_${SHFMT_VER}_linux_amd64" -o shfmt
+          chmod +x shfmt
+          mkdir pkgs
+          sudo apt update -y || true
+          sudo apt -d install --reinstall -y rsync="${RSYNC_VER}*" libpopt0
+          sudo mv /var/cache/apt/archives/{rsync,libpopt}* pkgs/
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+      - name: Setup environment
+        run: |
+          # rsync
+          sudo dpkg --force-all -i deps/pkgs/*.deb
+          # ssh: test if port 22 occupied when running locally
+          [[ -z "$ACT" ]] || {
+            ! exec 6<>/dev/tcp/127.0.0.1/22 || {
+              echo -e "\033[91mSSH port 22 occupied (by docker host).\033[0m" >&2
+              echo -e "\033[91mAborting ...\033[0m" >&2
+              exit 1
+            }
+            echo 'StrictHostKeyChecking no' >> /etc/ssh/ssh_config
+            echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
+            sudo mkdir -p /run/sshd
+            sudo /usr/sbin/sshd
+          }
+          ssh-keygen -t rsa -q -f "$HOME/.ssh/id_rsa" -N ""
+          ssh-keyscan -H localhost >> "$HOME/.ssh/known_hosts"
+          cat "$HOME/.ssh/id_rsa.pub" >"$HOME/.ssh/authorized_keys"
+      - name: Check script formatting
+        run: ./deps/shfmt -d -i 4 rsync-tmbackup.sh tests/*.sh
+      - name: Run tests and generate coverage report
+        run: |
+          mkdir coverage tmp
+          GEM_HOME="$(realpath deps/vendor/bundle/ruby/3.2.0)" \
+          ${RUNNER_TOOL_CACHE}/Ruby/3.2.0/x64/bin/ruby \
+          deps/vendor/bundle/ruby/3.2.0/bin/bashcov --skip-uncovered -- \
+            ./deps/bash_unit -f tap \
+              tests/test-functions.sh
+              # Omit test-retention-policy.sh. It takes too long.
+          tar -cvzf coverage.tgz coverage
+      - name: Archive coverage results
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage.tgz
+          retention-days: 30
