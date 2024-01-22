@@ -1,5 +1,3 @@
-[[toc]]
-
 # Rsync time backup
 
 This tool is completely rewritten. The original script can be found on [laurent22/rsync-time-backup][0].
