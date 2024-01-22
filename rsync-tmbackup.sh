@@ -73,39 +73,31 @@ EOF
     [[ -z "$2" ]] || exit "$2"
 }
 
-# shellcheck disable=SC2003 disable=SC2307
+# Converts YYYY-MM-DD-HHMMSS to YYYY-MM-DD HH:MM:SS and then to Unix Epoch.
 # $1: Date in XXXX-XX-XX-XXXXXX format
-# $2: Result variable name, will return time in seconds since epoch
+# $2: Result variable name, stores seconds since 1970-01-01 00:00:00 (LOCAL TZ)
 # Return: 0 if conversion successful, 1 otherwise
+# shellcheck disable=SC2003 disable=SC2307
 rbkp.parse_date() {
+    local -ra RDs=(
+        '([0123456789]{4})-(0[13578]|10|12)-(0[123456789]|[12][0123456789]|3[01])'
+        '([0123456789]{4})-(0[469]|11)-([0][123456789]|[12][0123456789]|30)'
+        '([0123456789]{4})-(02)-(0[123456789]|1[0123456789]|2[012345678])'
+        '([02468][048]00|[13579][26]00|[0123456789][0123456789][0][48]|([0123456789][0123456789][2468][048]|[0123456789][0123456789][13579][26])-(02)-(29)')
+    local RD RT='([01][0123456789]|2[0123])([012345][0123456789])([012345][0123456789])'
+    for RD in "${RDs[@]}"; do [[ ! "$1" =~ ^$RD-$RT$ ]] || break; done
+    [[ ${BASH_REMATCH[0]:+-} ]] || return 1
+    local y="10#${BASH_REMATCH[1]}" m="10#${BASH_REMATCH[2]}" d="10#${BASH_REMATCH[3]}"
+    local H="10#${BASH_REMATCH[4]}" M="10#${BASH_REMATCH[5]}" S="10#${BASH_REMATCH[6]}"
+    local era yoe doe
     local -n _rs="$2"
-    # Converts YYYY-MM-DD-HHMMSS to YYYY-MM-DD HH:MM:SS and then to Unix Epoch.
-    case "$OSTYPE" in
-    linux* | cygwin* | netbsd*)
-        _rs="$( #
-            date -d "${1:0:10} ${1:11:2}:${1:13:2}:${1:15:2}" +%s 2>/dev/null
-        )" || return 1
-        ;;
-    FreeBSD*)
-        _rs="$( #
-            date -j -f "%Y-%m-%d-%H%M%S" "$1" "+%s" 2>/dev/null
-        )" || return 1
-        ;;
-    darwin*)
-        # Under MacOS X Tiger
-        # Or with GNU 'coreutils' installed (by homebrew)
-        #   'date -j' doesn't work, so we do this:
-        yy="$(expr "${1:0:4}")"
-        mm="$(expr "${1:5:2}" - 1)"
-        dd="$(expr "${1:8:2}")"
-        hh="$(expr "${1:11:2}")"
-        mi="$(expr "${1:13:2}")"
-        ss="$(expr "${1:15:2}")"
-        _rs="$( #
-            perl -e "use Time::Local; print timelocal($ss,$mi,$hh,$dd,$mm,$yy),\"\n\";"
-        )" || return 1
-        ;;
-    esac
+    _rs="$((\
+        y -= (m <= 2), \
+        era = (y >= 0 ? y : y - 399) / 400, \
+        yoe = (y - era * 400), \
+        doe = yoe * 365 + yoe / 4 - yoe / 100 + \
+        d + (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 - 1, \
+        86400 * (era * 146097 + doe - 719468) + 3600 * H + 60 * M + S))"
 }
 
 # $1: Config dict name
@@ -113,7 +105,7 @@ rbkp.parse_date() {
 #   Results are in full path. Array will be cleared first.
 # $3: Sort cmd args ('' / '-r' / '-n', ...). Default '' means oldest first
 # Returns: 0 if at least one backup found, 1 if none found or error occurs.
-# shellcheck disable=SC2317 disable=SC2064
+# shellcheck disable=SC2317 disable=SC2064 disable=SC2034
 rbkp.find_backups() {
     local -n _rc="$1" _ra="$2"
     local sort_args="$3"
@@ -121,10 +113,10 @@ rbkp.find_backups() {
         trap "$(shopt -p nullglob dotglob failglob); trap - RETURN" RETURN
         shopt -s nullglob dotglob
         shopt -u failglob
+        local r
         # Only putput directory names with valid date format
         for d in "$1"/*; do
-            local r='r'
-            [[ ! -d "$d" ]] || ! rbkp.parse_date "$(basename "$d")" "$r" || echo "$d"
+            ! rbkp.parse_date "$(basename "$d")" r || [[ ! -d "$d" ]] || echo "$d"
         done | sort "${@:2}"
     }
 
