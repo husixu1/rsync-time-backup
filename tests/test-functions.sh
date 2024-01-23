@@ -644,10 +644,33 @@ test_post_backup() {
     mkdir -p -- "${cfg[LOG_DIR]}"
     local -A rsync_result=([NO_SPACE]=false [ISSUES]='none')
     rbkp.do_backup cfg sess rsync_result
-    rbkp.post_backup cfg sess "${rsync_result[ISSUES]}"
+    rbkp.post_backup cfg sess rsync_result
     assert_equals 0 $?
 
     assert "[[ -L '${cfg[DEST_DIR]}/latest' ]]"
     assert "[[ '${cfg[DEST_DIR]}/latest' -ef '${sess[DEST]}' ]]"
     assert_fail "[[ -f '${sess[INPROGRESS_FILE]}' ]]"
+} >&"$_OUT"
+
+test_post_backup_failed() {
+    # Create files in source directory
+    touch "$SRC_ROOT"/{file1,file2,file3}
+
+    _rsync() { return 123; }
+    fake rsync _rsync
+
+    # Peparations
+    local -A cfg=() sess=()
+    util.make_fake_cfg_sess cfg sess -ld "$TEST_ROOT/log" "$SRC_ROOT" "$DST_ROOT"
+    rbkp.pre_backup cfg sess
+    mkdir -p -- "${cfg[LOG_DIR]}"
+    local -A rsync_result=([NO_SPACE]=false [ISSUES]='none')
+    rbkp.do_backup cfg sess rsync_result
+    local stderr=
+    stderr="$(rbkp.post_backup cfg sess rsync_result 2>&1 >/dev/null)"
+    assert_equals 123 $?
+    assert_matches '.*Rsync returns nonzero return code \(123\).*' "$stderr"
+
+    # Inprogress file should not be removed on error
+    assert "[[ -f '${sess[INPROGRESS_FILE]}' ]]"
 } >&"$_OUT"

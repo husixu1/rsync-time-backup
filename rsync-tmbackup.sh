@@ -615,6 +615,7 @@ rbkp.handle_previous_backup_failure() {
 # $1: The log file
 # $2: Result dict name
 rbkp.parse_rsync_log_file() {
+    [[ -f "$1" ]] || return
     local -n _rr="$2"
     local line=''
     while read -r line; do
@@ -664,7 +665,7 @@ rbkp.pre_backup() {
 # $2: Session variables dict name
 # $3: Rsync result name
 rbkp.do_backup() {
-    local -n _rc="$1" _ss="$2"
+    local -n _rc="$1" _ss="$2" _rr="$3"
 
     rbkp.inf "Starting backup..."
     rbkp.inf "  From: ${_rc[SSH_SRC_DIR_PREFIX]}${_rc[SRC_DIR]@Q}"
@@ -692,7 +693,7 @@ rbkp.do_backup() {
     rbkp.inf "${_rc[RSYNC_CMD]} ${args[*]@Q}"
 
     rbkp.run "$1" "echo ${_ss[MYPID]} >| ${_ss[INPROGRESS_FILE]@Q}"
-    "${_rc[RSYNC_CMD]}" "${args[@]}"
+    "${_rc[RSYNC_CMD]}" "${args[@]}" || _rr[ISSUES]="$?"
 
     rbkp.parse_rsync_log_file "${_ss[LOG_FILE]}" "$3"
 }
@@ -700,11 +701,11 @@ rbkp.do_backup() {
 # Perform post-backup oeprations based on backup result
 # $1: Config dict name
 # $2: Session variables dict name
-# $2: error|warning|none: rsync result status
+# $3: Rsync result array name
 rbkp.post_backup() {
-    local -n _rc="$1" _ss="$2"
+    local -n _rc="$1" _ss="$2" _rr="$3"
 
-    case "$3" in
+    case "${rsync_result[ISSUES]}" in
     error)
         rbkp.err "Rsync reported an error. " \
             "Run this command for more details: " \
@@ -725,6 +726,16 @@ rbkp.post_backup() {
         rbkp.ln "$1" "$(basename -- "${_ss[DEST]}")" "${_rc[DEST_DIR]}/latest"
         rbkp.rm_file "$1" "${_ss[INPROGRESS_FILE]:?}"
         return 0
+        ;;
+    *)
+        [[ ! "${rsync_result[ISSUES]}" =~ ^[0123456789]+$ ]] || {
+            local ret_code="${rsync_result[ISSUES]}"
+            rbkp.err "Rsync returns nonzero return code ($ret_code)." \
+                "Please see log file for details: ${_ss[LOG_FILE]@Q}"
+            return "$ret_code"
+        }
+        rbkp.err "Unknown error ${rsync_result[ISSUES]}"
+        return 1
         ;;
     esac
 }
@@ -779,7 +790,7 @@ rbkp.main() {
         rbkp.pre_backup cfg sess
         rbkp.do_backup cfg sess rsync_result
     done
-    rbkp.post_backup cfg sess "${rsync_result[ISSUES]}"
+    rbkp.post_backup cfg sess rsync_result
 }
 
 # Return 0 ensure that main function is not executed when script is sourced.
