@@ -1,4 +1,4 @@
-name: Testing commits
+name: Tests
 on:
   push:
     paths-ignore:
