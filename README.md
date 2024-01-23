@@ -139,7 +139,7 @@ The following feature is overridden by a new one (see [retention policy](#retent
     ```bash
     rsync-tmbackup.sh user@example.com:/home /mnt/backup_drive
     ```
-- It is recommended to use systemd-timer with the [rsync-tmsched.sh](rsync-tmsched.sh).
+- It is recommended to use systemd-timer with the [rsync-tmsched.sh](rsync-tmsched.sh) wrapper. See [rsync-tmsched-conf-example.sh](rsync-tmsched-conf-example.sh) for a config file example.
     - `/etc/systemd/system/rsync-backup.service`
         ```ini
         [Unit]
@@ -148,7 +148,7 @@ The following feature is overridden by a new one (see [retention policy](#retent
         [Service]
         Type=oneshot
         User=root
-        ExecStart=/<path-to-rsync-tmsched.sh>
+        ExecStart=/<path-to-rsync-tmsched.sh> -c "/<path-to-rsync-tmsched-config.sh>"
         ```
     - `/etc/systemd/system/rsync-backup.timer`
         ```ini
