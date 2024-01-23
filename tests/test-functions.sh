@@ -278,6 +278,20 @@ test_check_filesystems_hardlinks() {
     assert_matches ".*doesn't support hard links.*" "$stderr"
 } >&"$_OUT"
 
+test_check_filesystems_root_dir() {
+    local -A cfg=() sess=()
+    util.make_fake_cfg_sess cfg sess "/" "$DST_ROOT"
+
+    # Regular execution should succeed
+    rbkp.check_filesystems cfg sess
+    assert_equals 0 $?
+
+    # There shouldn't be any error messages
+    stderr="$(rbkp.check_filesystems cfg sess 2>&1 >/dev/null)"
+    assert_equals 0 $?
+    assert_equals '' "$stderr"
+} >&"$_OUT"
+
 test_check_filesystems_fs_type() {
     local -A cfg=() sess=()
     util.make_fake_cfg_sess cfg sess "$SRC_ROOT" "$DST_ROOT"

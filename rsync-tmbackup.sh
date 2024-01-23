@@ -554,9 +554,9 @@ rbkp.check_filesystems() {
     # If one of them is FAT, use the --modify-window rsync parameter
     # (see man rsync) with a value of 1 or 2.
     local src_fs_type='' dst_fs_type=''
-    src_fs_type="$(rbkp.src_df_t "$1" "${_rc[SRC_DIR]}")"
+    src_fs_type="$(rbkp.src_df_t "$1" "${_rc[SRC_DIR]:-/}")"
     [[ ${src_fs_type,,} == *fat* ]] ||
-        dst_fs_type="$(rbkp.df_t "$1" "${_rc[DEST_DIR]}")"
+        dst_fs_type="$(rbkp.df_t "$1" "${_rc[DEST_DIR]:-/}")"
     [[ ${src_fs_type,,}${dst_fs_type,,} != *fat* ]] || {
         rbkp.inf "Source or destination file-system is a version of FAT."
         rbkp.inf "Using the --modify-window rsync parameter with value 2."
