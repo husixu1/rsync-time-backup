@@ -4,8 +4,8 @@
 source ../rsync-tmsched.sh
 source ./utils.sh
 
-_OUT=1 # Debug
-# exec {_OUT}<>/dev/null # No Debug
+# _OUT=1 # Debug
+exec {_OUT}<>/dev/null # No Debug
 
 # Initializations -------------------------------------------------------------
 setup_suite() {
