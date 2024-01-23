@@ -793,6 +793,8 @@ rbkp.main() {
     rbkp.post_backup cfg sess rsync_result
 }
 
+# Debug and bashcov compatibility
+[[ $- != *x* ]] || set +e
 # Return 0 ensure that main function is not executed when script is sourced.
 # shellcheck disable=SC2317
 return 0 2>/dev/null || rbkp.main "$@"

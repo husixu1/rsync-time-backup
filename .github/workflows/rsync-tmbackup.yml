@@ -87,7 +87,8 @@ jobs:
           ${RUNNER_TOOL_CACHE}/Ruby/3.2.0/x64/bin/ruby \
           deps/vendor/bundle/ruby/3.2.0/bin/bashcov --skip-uncovered -- \
             ./deps/bash_unit -f tap \
-              tests/test-functions.sh
+              tests/test-functions.sh \
+              tests/test-tmsched.sh
               # Omit test-retention-policy.sh. It takes too long.
           tar -cvzf coverage.tgz coverage
       - name: Archive coverage results

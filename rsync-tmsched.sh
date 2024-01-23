@@ -188,6 +188,8 @@ rscd.main() {
     "$success"
 }
 
+# Debug and bashcov compatibility
+[[ $- != *x* ]] || set +e
 # Don't execute backup if sourced
 # shellcheck disable=SC2317
 return 0 2>/dev/null || rscd.main "$@"
