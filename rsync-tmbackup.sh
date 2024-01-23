@@ -335,7 +335,7 @@ rbkp.run_src() { local _rc="$1" && rbkp.__run "$1" SSH_SRC_DIR_PREFIX "${*:2}"; 
 rbkp.abs_path() { rbkp.run "$1" "cd ${2@Q}; pwd"; }
 rbkp.mkdir() { rbkp.run "$1" "mkdir -p -- ${2@Q}"; }
 rbkp.rm_file() { rbkp.run "$1" "rm -f -- ${2@Q}"; }
-rbkp.rm_dir() { rbkp.run "$1" "rm -rf -- ${2@Q}"; }
+rbkp.rm_dir() { rbkp.run "$1" "rm --one-file-system -rf -- ${2@Q}"; }
 rbkp.ln() { rbkp.run "$1" "ln -s -- ${2@Q} ${3@Q}"; }
 rbkp.test_d() { rbkp.run "$1" "test -d ${2@Q}"; }
 rbkp.test_f() { rbkp.run "$1" "test -f ${2@Q}"; }
