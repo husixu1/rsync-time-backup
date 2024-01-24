@@ -141,7 +141,8 @@ rscd.main() {
     rscd.redirect_output_to_logs "$RSCD_LOG_DIR" "${PROG_NAME%.sh}"
 
     # Nodify the start of this script
-    rscd.inf $'\033[92m'"[$(date '+%F %T')] >>> $PROG_NAME started"$'\033[0m'
+    local start_time="${EPOCHSECONDS:-0}"
+    rscd.inf $'\033[92m'"[$(date -d "@$start_time" '+%F %T')] >>> $PROG_NAME started"$'\033[0m'
     # Create temporary exclusion list file
     EXCL_FILE="$(mktemp)" || rscd.crt "Failed to create temporary file."
     trap 'rm -f ${EXCL_FILE@Q}; trap - RETURN;' RETURN
@@ -184,7 +185,9 @@ rscd.main() {
         } || rscd.err "Notification command failed."
     done
     local COLOR=$'\033[92m' && "$success" || COLOR=$'\033[93m'
-    rscd.inf "$COLOR""[$(date '+%F %T')] <<< $PROG_NAME finished"$'\033[0m'
+    local end_time="${EPOCHSECONDS:-0}" total_time=''
+    total_time="$(date -d "@$((end_time - start_time))" -u '+%Hh %Mm %Ss')"
+    rscd.inf "$COLOR""[$(date -d "@$end_time" '+%F %T')] <<< $PROG_NAME finished (total $total_time)"$'\033[0m'
     "$success"
 }
 
