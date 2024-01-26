@@ -11,15 +11,15 @@ sched_monthly() { [[ "$(date +%d)" == "01" ]]; }
 # $2: backup config name (the xxx part of conf_xxx)
 notify() {
     [[ "$1" -eq 0 ]] ||
-        gotify-cli push -t "Backup Failed" "$2 (ret=$1)"
+        : # Replace with a command to send email/push notification, etc.
 }
 
-# Note that this log dir is the different from rsync-tmbackup's --log-file
+# Note that this log dir is different from the rsync-tmbackup's --log-file
 # option, which only saves the output of rsync. This log dir saves all output
 # to rsync-tmsched.{log,err} files (in append mode).
 #
 # Logs won't automatically rotate. Remember to use logrotate or similar
-# utilities log rotation to prevent disk fillup. Set to empty to diable logging.
+# utilities to prevent disk fillup. Set to empty to diable logging.
 RSCD_LOG_DIR="/var/log/rsync-backup"
 
 # Custom variables
@@ -62,9 +62,9 @@ declare -a excl_System1_DST2=(
 )
 
 # Backup data directory -------------------------------------------------------
-# Note that rsync-tmsched always add a slash '/' to source directory, so
-# '/xxx' in the filter list means matching '<source>/xxx'. There's no need
-# to specify '/<source>/xxx' in the filter list.
+# Note that rsync-tmsched always append a slash '/' to source directory, so
+# '/xxx' in the filter list matches '<source>/xxx'. There's no need to specify
+# '/<source>/xxx' in the filter list.
 declare -A conf_Data_DST1=(
     [src]="/Data"
     [dst]="$BR_DST1/Data"
