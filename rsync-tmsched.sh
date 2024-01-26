@@ -163,7 +163,7 @@ rscd.main() {
         # Test whether backup today
         local -n c_dict="$c_name"
         [[ -z "${c_dict[sched]}" ]] || ("__rscd_sched_${c_dict[sched]}") || {
-            rscd.inf "Not today: skipping '$c_name'"
+            rscd.inf "Not today: skipping '${c_name#__rscd_conf_}'"
             continue
         }
 
