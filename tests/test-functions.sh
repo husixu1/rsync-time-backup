@@ -503,6 +503,44 @@ test_pre_backup() {
     assert_fail "[[ -d '$DST_ROOT/1970-01-01-111111' ]]"
 } >&"$_OUT"
 
+test_pre_backup_hook() {
+    local -A cfg=() sess=()
+    util.make_fake_cfg_sess cfg sess "$SSH_HOST:$SRC_ROOT" "$DST_ROOT" \
+        --pre-sync-hook 'echo "pre-sync-hook"'
+    local stdout=''
+    stdout="$(rbkp.pre_backup_hook cfg sess)"
+    assert_equals 0 $?
+    assert_matches '.*Running pre-sync hook.*pre-sync-hook.*' "$stdout"
+} >&"$_OUT"
+
+test_pre_backup_hook_failed() {
+    local -A cfg=() sess=()
+    util.make_fake_cfg_sess cfg sess "$SSH_HOST:$SRC_ROOT" "$DST_ROOT" \
+        --pre-sync-hook 'false'
+    local stderr=''
+    stderr="$(rbkp.pre_backup_hook cfg sess 2>&1 >/dev/null)"
+    assert_not_equals 0 $?
+} >&"$_OUT"
+
+test_post_backup_hook() {
+    local -A cfg=() sess=()
+    util.make_fake_cfg_sess cfg sess "$SSH_HOST:$SRC_ROOT" "$DST_ROOT" \
+        --post-sync-hook 'echo "post-sync-hook"'
+    local stdout=''
+    stdout="$(rbkp.post_backup_hook cfg sess)"
+    assert_equals 0 $?
+    assert_matches '.*Running post-sync hook.*post-sync-hook.*' "$stdout"
+} >&"$_OUT"
+
+test_post_backup_hook_failed() {
+    local -A cfg=() sess=()
+    util.make_fake_cfg_sess cfg sess "$SSH_HOST:$SRC_ROOT" "$DST_ROOT" \
+        --post-sync-hook 'false'
+    local stderr=''
+    stderr="$(rbkp.post_backup_hook cfg sess 2>&1 >/dev/null)"
+    assert_not_equals 0 $?
+} >&"$_OUT"
+
 test_do_backup() {
     # Create files in source directory
     touch "$SRC_ROOT"/{file1,file2,file3}

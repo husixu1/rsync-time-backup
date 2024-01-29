@@ -37,6 +37,17 @@ ${H}OPTIONS$N
     $H-raf$N, $H--rsync-append-flags$N
         Append the rsync flags that are going to be used for backup.
 
+    $H-prsh$N, $H--pre-sync-hook$N
+        Command to execute on the source host just before syncing. Note that if
+        the source host is a remote host, the command will be executed remotely.
+        If this hook fails, syncing will not start. Retention policy will be
+        executed regardles.
+
+    $H-posh$N, $H--post-sync-hook$N
+        Command to execute on the source host after syncing. Note that if the
+        source host is a remote host, the command will be executed remotely.
+        If syncing fails, this hook will not be executed.
+
     $H-ld$N, $H--log-dir$N <DIR> (Default: ${_rc[LOG_DIR]})
         Set the log file directory. If this flag is set, generated files
         will not be managed by the script - in particular they will not be
@@ -369,6 +380,8 @@ rbkp.create_default_config() {
         [USE_RETENTION]=''
         [AUTO_EXPIRE]=true
         [RSYNC_FLAGS]="${default_rsync_flags[*]}"
+        [PRE_HOOK]=''
+        [POST_HOOK]=''
         [MARKER_NAME]='backup.marker'
         # Ssh configs
         [SSH_USER]=''
@@ -403,6 +416,8 @@ rbkp.parse_args() {
         -rgf | --rsync-get-flags) shift && echo "${_rc[RSYNC_FLAGS]}" && exit ;;
         -rsf | --rsync-set-flags) shift && _rc[RSYNC_FLAGS]="$1" ;;
         -raf | --rsync-append-flags) shift && _rc[RSYNC_FLAGS]="${_rc[RSYNC_FLAGS]} $1" ;;
+        -prsh | --pre-sync-hook) shift && _rc[PRE_HOOK]="$1" ;;
+        -posh | --post-sync-hook) shift && _rc[POST_HOOK]="$1" ;;
         -nae | --no-auto-expire) _rc[AUTO_EXPIRE]=false ;;
         -s | --strategy)
             shift
@@ -658,6 +673,21 @@ rbkp.pre_backup() {
     '') rbkp.expire_backups "$1" "$2" "${_ss[DEST]}" ;;
     *) rbkp.expire_backups "$1" "$2" "${_ss[PREV_DEST]}" ;;
     esac
+
+}
+
+rbkp.pre_backup_hook() {
+    local -n _rc="$1"
+    [[ "${_rc[PRE_HOOK]}" ]] || return 0
+    rbkp.inf "Running pre-sync hook..."
+    rbkp.run_src "$1" "${_rc[PRE_HOOK]}" || return 1
+}
+
+rbkp.post_backup_hook() {
+    local -n _rc="$1"
+    [[ "${_rc[POST_HOOK]}" ]] || return 0
+    rbkp.inf "Running post-sync hook..."
+    rbkp.run_src "$1" "${_rc[POST_HOOK]}" || return 1
 }
 
 # Start backup
@@ -772,6 +802,7 @@ rbkp.main() {
 
     local -A rsync_result=([NO_SPACE]=false [ISSUES]='none')
     rbkp.pre_backup cfg sess
+    rbkp.pre_backup_hook cfg || rbkp.crt "Pre-sync hook failed."
     rbkp.do_backup cfg sess rsync_result
 
     # Remove old backup and retry if no space left
@@ -790,7 +821,8 @@ rbkp.main() {
         rbkp.pre_backup cfg sess
         rbkp.do_backup cfg sess rsync_result
     done
-    rbkp.post_backup cfg sess rsync_result
+    rbkp.post_backup cfg sess rsync_result || return $?
+    rbkp.post_backup_hook cfg || rbkp.crt "Post-sync hook failed."
 }
 
 # Debug and bashcov compatibility
