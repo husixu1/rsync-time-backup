@@ -176,6 +176,9 @@ test_parse_args() {
     rbkp.parse_args cfg -raf --abc --rsync-append-flags def
     assert_equals "$default_flags --abc def" "${cfg[RSYNC_FLAGS]}"
 
+    rbkp.parse_args cfg --rsync-append-flags '-a b --c-d e'
+    assert_equals "$default_flags --abc def -a b --c-d e" "${cfg[RSYNC_FLAGS]}"
+
     rbkp.parse_args cfg -rsf --abc
     assert_equals "--abc" "${cfg[RSYNC_FLAGS]}"
 
