@@ -88,6 +88,8 @@ declare -A conf_Server_DST1=(
     [dst]="$BR_DST1/Server-root"
     # Specify other options like this
     ['--id-rsa']="$HOME/.ssh/id_rsa"
+    # Dump database before backup. Use 'true' at the end to ignore dump errors
+    ['--pre-sync-hook']='mysqldump -u root -pPASSWORD db_name > db.sql; true;'
 )
 declare -a excl_Server_DST1=(
     # Home directories
