@@ -324,7 +324,10 @@ rbkp.expire_backups_new() {
 # Chose one of rbkp.expire_backups_old and rbkp.expire_backups_new
 rbkp.expire_backups() {
     local -n _rc="$1"
-    ${_rc[USE_RETENTION]} || rbkp.expire_backups_old "$@"
+    ${_rc[USE_RETENTION]} || {
+        rbkp.expire_backups_old "$@"
+        return
+    }
     rbkp.expire_backups_new "$@"
 }
 
