@@ -41,6 +41,17 @@ OPTIONS
     -raf, --rsync-append-flags
         Append the rsync flags that are going to be used for backup.
 
+    -prsh, --pre-sync-hook
+        Command to execute on the source host just before syncing. Note that if
+        the source host is a remote host, the command will be executed remotely.
+        If this hook fails, syncing will not start. Retention policy will be
+        executed regardles.
+
+    -posh, --post-sync-hook
+        Command to execute on the source host after syncing. Note that if the
+        source host is a remote host, the command will be executed remotely.
+        If syncing fails, this hook will not be executed.
+
     -ld, --log-dir <DIR> (Default: $HOME/.cache/rsync-tmbackup)
         Set the log file directory. If this flag is set, generated files
         will not be managed by the script - in particular they will not be
@@ -66,6 +77,10 @@ OPTIONS
     -nae, --no-auto-expire
         Disable automatically deleting backups when out of space. Instead an
         error is logged, and the backup is aborted.
+
+    -sco, --suppress-cd-output
+        Suppress the output of the annoying cd..t...... (dir creation) changes.
+        Useful for showing only critical changes.
 ```
 
 # What's new
@@ -77,6 +92,7 @@ OPTIONS
 
 - Wrapper [scheduling script](rsync-tmsched.sh) to configure multiple backups plans in one place.
 - New intuitive [retention policy](#retention-policy).
+- Pre/post backup hooks.
 - Less external dependencies
     - `coreutils`, and `rsync` are still needed.
     - `ssh` is needed for executing commands remotely.
@@ -197,7 +213,20 @@ The following is the old retention policy. This function is kept for backward co
 
 ## Other features
 
-All features are kept.
+### Pre/post-sync hook
+
+Pre/post hook can be used to execute commands on the source host before/after backup. For example, to dump MySQL database before backup:
+
+```bash
+rsync-tmbackup.sh --pre-sync-hook "mysqldump -u root -p123456 db_name > /var/lib/sql-bakup.sql" \
+    server:/  /mnt/backup_drive
+```
+
+If the source is a remote host, the command will be executed remotely.
+
+---
+
+All other old features are kept.
 
 > ### Exclusion file
 >
@@ -212,7 +241,7 @@ All features are kept.
 > To display the rsync options that are used for backup, run `./rsync-tmbackup.sh --rsync-get-flags`. It is also possible to add or remove options using the `--rsync-append-flags` or `--rsync-set-flags` option. For example, to exclude backing up permissions and groups:
 >
 > ```bash
-> rsync_tmbackup --rsync-append-flags "--no-perms --no-group" /src /dest
+> rsync-tmbackup --rsync-append-flags "--no-perms --no-group" /src /dest
 > ```
 >
 > ### No automatic backup expiration
