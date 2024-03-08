@@ -541,6 +541,27 @@ test_post_backup_hook_failed() {
     assert_not_equals 0 $?
 } >&"$_OUT"
 
+test_filter_cd() {
+    local -A cfg=() sess=()
+    local stdout="$( #
+        rbkp.__filter_cd <<EOF
+
+>f.st...... /asdf
+cd..t...... /a/b
+>f.st...... /a/b/1
+>f.st...... /a/b/2
+>f..t...... /a/b/3
+EOF
+    )"
+
+    local expected_stdout="
+>f.st...... /asdf
+>f.st...... /a/b/1
+>f.st...... /a/b/2
+>f..t...... /a/b/3"
+    assert_equals "$expected_stdout" "$stdout"
+} >&"$_OUT"
+
 test_do_backup() {
     # Create files in source directory
     touch "$SRC_ROOT"/{file1,file2,file3}

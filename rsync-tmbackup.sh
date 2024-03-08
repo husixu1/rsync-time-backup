@@ -74,6 +74,10 @@ ${H}OPTIONS$N
         Disable automatically deleting backups when out of space. Instead an
         error is logged, and the backup is aborted.
 
+    $H-sco$N, $H--suppress-cd-output$N
+        Suppress the output of the annoying cd..t...... (dir creation) changes.
+        Useful for showing only critical changes.
+
 ${H}SEE ALSO$N
     For detailed help, see the README file:
     ${U}https://github.com/husixu1/rsync-time-backup$N
@@ -386,6 +390,7 @@ rbkp.create_default_config() {
         [PRE_HOOK]=''
         [POST_HOOK]=''
         [MARKER_NAME]='backup.marker'
+        [SUPPRESS_CD_OUTPUT]=false
         # Ssh configs
         [SSH_USER]=''
         [SSH_HOST]=''
@@ -422,6 +427,7 @@ rbkp.parse_args() {
         -prsh | --pre-sync-hook) shift && _rc[PRE_HOOK]="$1" ;;
         -posh | --post-sync-hook) shift && _rc[POST_HOOK]="$1" ;;
         -nae | --no-auto-expire) _rc[AUTO_EXPIRE]=false ;;
+        -sco | --suppress-cd-output) _rc[SUPPRESS_CD_OUTPUT]=true ;;
         -s | --strategy)
             shift
             _rc[EXPIRATION_STRATEGY]="$1"
@@ -693,6 +699,13 @@ rbkp.post_backup_hook() {
     rbkp.run_src "$1" "${_rc[POST_HOOK]}" || return 1
 }
 
+rbkp.__filter_cd() {
+    while IFS= read -r line; do
+        [[ $line == 'cd..t......'* ]] && continue
+        echo "$line"
+    done
+}
+
 # Start backup
 # $1: Config dict name
 # $2: Session variables dict name
@@ -724,9 +737,13 @@ rbkp.do_backup() {
 
     rbkp.inf "Running command:"
     rbkp.inf "${_rc[RSYNC_CMD]} ${args[*]@Q}"
-
     rbkp.run "$1" "echo ${_ss[MYPID]} >| ${_ss[INPROGRESS_FILE]@Q}"
-    "${_rc[RSYNC_CMD]}" "${args[@]}" || _rr[ISSUES]="$?"
+
+    local filter="cat" ret_code=0
+    ! "${_rc[SUPPRESS_CD_OUTPUT]}" || filter="rbkp.__filter_cd"
+    "${_rc[RSYNC_CMD]}" "${args[@]}" | "$filter"
+    ret_code="${PIPESTATUS[0]}"
+    [[ "$ret_code" -eq 0 ]] || _rr[ISSUES]="$ret_code"
 
     rbkp.parse_rsync_log_file "${_ss[LOG_FILE]}" "$3"
 }
