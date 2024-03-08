@@ -113,7 +113,10 @@ declare -a excl_b=(
     "- /home/user"
     "- /home/user/log"
 )
-declare -A conf_c=([src]='e' [dst]='f' ['--log-file']='/home/user/log')
+declare -A conf_c=(
+    [src]='e' [dst]='f' ['--log-file']='/home/user/log'
+    ['--suppress-cd-output']=''
+)
 EOF
 
     local config_file=''
@@ -149,11 +152,12 @@ EOF
     rscd.gen_rbkp_args \
         "__rscd_conf_c" "__rscd_excl_c" "$TEST_ROOT/excl" args
     assert_equals 0 $?
-    assert_equals 4 "${#args[@]}"
+    assert_equals 5 "${#args[@]}"
     assert_equals '--log-file' "${args[0]}"
     assert_equals '/home/user/log' "${args[1]}"
-    assert_equals 'e' "${args[2]}"
-    assert_equals 'f' "${args[3]}"
+    assert_equals '--suppress-cd-output' "${args[2]}"
+    assert_equals 'e' "${args[3]}"
+    assert_equals 'f' "${args[4]}"
 } >&"$_OUT"
 
 test_schedule() {

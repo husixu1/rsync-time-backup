@@ -107,10 +107,11 @@ rscd.gen_rbkp_args() {
 
     # 1. Generate options
     local option=''
-    for option in "${!_rc[@]}"; do
+    while IFS= read -r option; do
         [[ ! $option =~ ^(src|dst|sched)$ ]] || continue
-        _rr+=("$option" "${_rc["$option"]}")
-    done
+        _rr+=("$option")
+        [[ -z "${_rc["$option"]}" ]] || _rr+=("${_rc["$option"]}")
+    done < <(for k in "${!_rc[@]}"; do echo "$k"; done | sort)
 
     # 2. Generate src, dst
     _rr+=("${_rc[src]}" "${_rc[dst]}")
