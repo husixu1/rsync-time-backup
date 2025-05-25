@@ -264,19 +264,21 @@ They are not tested on the new `rsync-tmbackup.sh`.
 > - [rtb-wrapper](https://github.com/thomas-mc-work/rtb-wrapper): Allows creating backup profiles in config files. Handles both backup and restore operations.
 > - [time-travel](https://github.com/joekerna/time-travel): Smooth integration into OSX Notification Center
 
-# Making it secure
-Since this project utilizes ssh with shared keys to access the backup server you should restrict the activies that can be done over ssh by restricting the account in a change root jail.  These instruction assume your backup server is a linux machine.
+# Making access to your SSH backup server secure
+These instructions have only been tested when using SSH to access a destination backup server.  In the event you use SSH to access the source files, some modification  might be required. These instruction assume your backup server is a linux machine. Shared keys are utilize the backup server so it's wise to limit what can be done with the shared key by restricting access on the backup server with a change root jail.  
+
+Though out this section, with exception of inside the script provided in this section, items represented by ALL_CAPS are things you need to change as appropriate for your environment. 
 
 ## Setting up the change root jail on the linux machine.
 
 ### Create the change root directory
 
-The following script can be used to set up the change root jail with all the appropriate files.
+The following script can be used to set up the change root jail on the destination backup server, with all the appropriate files required by the rsync-time-backup.sh script.
 
 ```
 #!/bin/bash
 # This script can be used to create simple chroot environment
-# Written by LinuxConfig.org and modified to work specifically for rsync-time-back
+# Modification of a script Written by LinuxConfig.org
 # (c) 2020 LinuxConfig under GNU GPL v3.0+
 
 #!/bin/bash
@@ -297,7 +299,7 @@ mknod -m 666 tty c 5 0
 mknod -m 666 zero c 1 5
 mknod -m 666 random c 1 8
 
-executables=`ls /bin/{bash,echo,ls,cat,rm,mkdir,rmdir} /usr/bin/{rsync,df,head,ln,tail,touch,test,sort}`
+executables=`ls /bin/{bash,echo,ls,cat,rm,mkdir,rmdir,date} /usr/bin/{basename,rsync,df,head,ln,tail,touch,test,sort}`
 
 for i in $( ldd $executables | grep -v dynamic | cut -d " " -f 3 | sed 's/://' | sort | uniq )
   do
@@ -306,31 +308,69 @@ for i in $( ldd $executables | grep -v dynamic | cut -d " " -f 3 | sed 's/://' |
 
 # ARCH amd64
 if [ -f /lib64/ld-linux-x86-64.so.2 ]; then
-   cp -v -r --parents /lib64/ld-linux-x86-64.so.2 $CHROOT
+   cp -v -r -L --parents /lib64/ld-linux-x86-64.so.2 $CHROOT
 fi
 
 # ARCH i386
 if [ -f  /lib/ld-linux.so.2 ]; then
-   cp -v -r --parents /lib/ld-linux.so.2 $CHROOT
+   cp -v -r -L --parents /lib/ld-linux.so.2 $CHROOT
 fi
 
 useradd -s /bin/bash $2
 mkdir -p $CHROOT/home/$2
 chown $2: $CHROOT/home/$2
+chmod 700 $CHROOT/home/$2
 mkdir  -p $CHROOT/home/$2/.ssh
 chown  $2: $CHROOT/home/$2/.ssh
+chmod  700 $CHROOT/home/$2/.ssh
 
 ln -s $CHROOT/home/$2 /home/$2
-cp -v /etc/{passwd,group} $CHROOT/etc
+cp -L -v /etc/{passwd,group,mtab} $CHROOT/etc
 
 echo "Chroot jail is ready. To access it execute: chroot $CHROOT"
 ```
 
-Save the above in a file name mk-chroot and then execute it with two parameters, CHROOT_PATH and USER_ACCOUNT
-The script creates a change root jail for a new user account that is added to the system that is specified by the USER_ACCOUNT argument.  The change root files will be loaded into CHROOT_PATH.  When the user account is created, a home directory is made under the change root file structure.  A symbloic link is also make in the OS level /home directory to the home directory in the chroot file structure.  This is done so the shared key used to login to the host system is available both within and out of the change root.  
+Save the above in a file name mk-chroot and then execute it with two command line parameters, ABSOLUTE_CHROOT_PATH and USER_ACCOUNT:
+```
+./mk-chroot ABSOLUTE_CHROOT_PATH USER_ACCOUNT
+```
 
-To login to this change root you need to add the public key of the user loging in to the account in the /home/USER_ACCOUNT/.ssh/authorized_keys file.  If you place the public key in the .ssh directory and then rename it authorized_keys you should be good to go.
+The script creates a change root jail for a new user account named by USER_ACCOUNT to the backup server.  The change root files will be created at the directory path identified by ABSOLUTE_CHROOT_PATH.  When the user account is created, a home directory is made under the change root file structure.  A symbloic link is also make in the OS level /home directory that links to the home directory in the chroot file structure.  This is done so the shared key used to login to the host system is available both within and out of the change root.
 
+After you run the above script you still need to place the public key you'll use to access the backup server in the file /home/USER_ACCOUNT/.ssh/authorized_keys.  If you place the public key in this .ssh directory and then rename it authorized_keys you should be good to go, assuming you're not logging into this account with other keys. The mode of the authorized_keys file needs to be 0600 to enable log in:
+```
+chmod 0600 /home/USER_ACCOUNT/.ssh/authorized_keys
+```
+
+## Configure sshd on the backup server to limit login to the change root
+These instruction have been tested with openssh-server on a ubuntu system.  The configuration file for the ssh server will be found at /etc/ssh/sshd_config. To restrict a user to the change root you add the following two lines to the bottome of the sshd_config file:
+
+```
+Match User USER_ACCOUNT
+	ChrootDirectory /test
+```
+USER_ACCOUNT is the same USER_ACCOUNT name provided when creating the change root directory structure.  You need to restart the ssh server via:
+```
+systemctl restart ssh
+```
+Once you have the ssh key pair in place, this USER_ACCOUNT should be restricted in the change root upon ssh login.
+
+## Creating the SSH Key pair on the source machine
+The ssh key pair can be created utilize ssh-keygen command.  It's wise to create a key that is used just for this backup process.  In my case I have multiple users backing up to the same backup server.  I create a change root on the backup server for each user and give each user their own key pair. Alternatively you could allow all users to backup under one change root with their own key pair, or sharing the same key pair. You generate a key like this:
+```
+ssh-keygen -t ed25519 -C "KEY_PAIR_FILENAME"
+```
+This creates two files, one name KEY_PAIR_FILENAME and one name KEY_PAIR_FILENAME.pub.  The first file go to the machine that contains files to backup and the second is added to the authorized_keys file for the destination user account, under their .ssh directory, on the backup server.
+
+### Access the backup server with the key pair
+You should be able to login to the change root on the backup server now utilizing the key via:
+```
+ssh -i /ABSOLUTE_PATH_TO_KEY_PAIR/KEY_PAIR_FILENAME USER_ACCOUNT@IP_OF_BACKUP_SRV
+```
+Assuming you can log in with the key pair you can then execute your first backup via:
+```
+DIRECTORY_PATH/rsync-tmbackup.sh -i /ABSOLUTE_PATH_TO_KEY_PAIR/KEY_PAIR_FILENAME  SOURCE_DIRECTORY  USER_ACCOUNT@IP_OF_BACKUP_SRV:DESTINATION
+```
 
 
 ## LICENSE
