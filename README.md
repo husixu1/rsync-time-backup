@@ -264,6 +264,75 @@ They are not tested on the new `rsync-tmbackup.sh`.
 > - [rtb-wrapper](https://github.com/thomas-mc-work/rtb-wrapper): Allows creating backup profiles in config files. Handles both backup and restore operations.
 > - [time-travel](https://github.com/joekerna/time-travel): Smooth integration into OSX Notification Center
 
+# Making it secure
+Since this project utilizes ssh with shared keys to access the backup server you should restrict the activies that can be done over ssh by restricting the account in a change root jail.  These instruction assume your backup server is a linux machine.
+
+## Setting up the change root jail on the linux machine.
+
+### Create the change root directory
+
+The following script can be used to set up the change root jail with all the appropriate files.
+
+```
+#!/bin/bash
+# This script can be used to create simple chroot environment
+# Written by LinuxConfig.org and modified to work specifically for rsync-time-back
+# (c) 2020 LinuxConfig under GNU GPL v3.0+
+
+#!/bin/bash
+
+CHROOT=$1
+mkdir -p $CHROOT
+mkdir -p $CHROOT/"dev"
+mkdir -p $CHROOT/"etc"
+mkdir -p $CHROOT/"home"
+mkdir -p $CHROOT/"bin"
+mkdir -p $CHROOT/"usr/bin"
+chown -R root:root $CHROOT
+chmod 755 $CHROOT
+cd $CHROOT/"dev"
+pwd
+mknod -m 666 null c 1 3
+mknod -m 666 tty c 5 0
+mknod -m 666 zero c 1 5
+mknod -m 666 random c 1 8
+
+executables=`ls /bin/{bash,echo,ls,cat,rm,mkdir,rmdir} /usr/bin/{rsync,df,head,ln,tail,touch,test,sort}`
+
+for i in $( ldd $executables | grep -v dynamic | cut -d " " -f 3 | sed 's/://' | sort | uniq )
+  do
+    cp -v --parents $i $CHROOT
+  done
+
+# ARCH amd64
+if [ -f /lib64/ld-linux-x86-64.so.2 ]; then
+   cp -v -r --parents /lib64/ld-linux-x86-64.so.2 $CHROOT
+fi
+
+# ARCH i386
+if [ -f  /lib/ld-linux.so.2 ]; then
+   cp -v -r --parents /lib/ld-linux.so.2 $CHROOT
+fi
+
+useradd -s /bin/bash $2
+mkdir -p $CHROOT/home/$2
+chown $2: $CHROOT/home/$2
+mkdir  -p $CHROOT/home/$2/.ssh
+chown  $2: $CHROOT/home/$2/.ssh
+
+ln -s $CHROOT/home/$2 /home/$2
+cp -v /etc/{passwd,group} $CHROOT/etc
+
+echo "Chroot jail is ready. To access it execute: chroot $CHROOT"
+```
+
+Save the above in a file name mk-chroot and then execute it with two parameters, CHROOT_PATH and USER_ACCOUNT
+The script creates a change root jail for a new user account that is added to the system that is specified by the USER_ACCOUNT argument.  The change root files will be loaded into CHROOT_PATH.  When the user account is created, a home directory is made under the change root file structure.  A symbloic link is also make in the OS level /home directory to the home directory in the chroot file structure.  This is done so the shared key used to login to the host system is available both within and out of the change root.  
+
+To login to this change root you need to add the public key of the user loging in to the account in the /home/USER_ACCOUNT/.ssh/authorized_keys file.  If you place the public key in the .ssh directory and then rename it authorized_keys you should be good to go.
+
+
+
 ## LICENSE
 
 MIT. See [LICENSE](LICENSE).
