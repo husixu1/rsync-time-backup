@@ -264,8 +264,8 @@ They are not tested on the new `rsync-tmbackup.sh`.
 > - [rtb-wrapper](https://github.com/thomas-mc-work/rtb-wrapper): Allows creating backup profiles in config files. Handles both backup and restore operations.
 > - [time-travel](https://github.com/joekerna/time-travel): Smooth integration into OSX Notification Center
 
-# Making access to your SSH backup server secure
-These instructions have only been tested when using SSH to access a destination backup server.  In the event you use SSH to access the source files, some modification  might be required. These instruction assume your backup server is a linux machine. Shared keys are utilize the backup server so it's wise to limit what can be done with the shared key by restricting access on the backup server with a change root jail.  
+# Making access to an SSH backup server secure
+These instructions have only been tested when using SSH to access a destination backup server.  In the event you use SSH to access the source files, some modification  might be required. These instruction assume your backup server is a linux machine. They were test under Ubuntu. Since you'll be accessing your backup server via shared ssh keys, it's wise to limit what can be done with the shared key by restricting access via a change root jail.  
 
 Though out this section, with exception of inside the script provided in this section, items represented by ALL_CAPS are things you need to change as appropriate for your environment. 
 
@@ -273,7 +273,7 @@ Though out this section, with exception of inside the script provided in this se
 
 ### Create the change root directory
 
-The following script can be used to set up the change root jail on the destination backup server, with all the appropriate files required by the rsync-time-backup.sh script.
+The following script can be used to set up the change root jail on the destination backup server.  The stript creates a change root directory structure with all the files required by the rsync-time-backup.sh script to access an remote backup server.
 
 ```
 #!/bin/bash
@@ -330,20 +330,20 @@ cp -L -v /etc/{passwd,group,mtab} $CHROOT/etc
 echo "Chroot jail is ready. To access it execute: chroot $CHROOT"
 ```
 
-Save the above in a file name mk-chroot and then execute it with two command line parameters, ABSOLUTE_CHROOT_PATH and USER_ACCOUNT:
+Save the above script in a file name mk-chroot on the backup server. You need to make the script executable.  You execute it with two command line parameters, ABSOLUTE_CHROOT_PATH and USER_ACCOUNT:
 ```
 ./mk-chroot ABSOLUTE_CHROOT_PATH USER_ACCOUNT
 ```
 
-The script creates a change root jail for a new user account named by USER_ACCOUNT to the backup server.  The change root files will be created at the directory path identified by ABSOLUTE_CHROOT_PATH.  When the user account is created, a home directory is made under the change root file structure.  A symbloic link is also make in the OS level /home directory that links to the home directory in the chroot file structure.  This is done so the shared key used to login to the host system is available both within and out of the change root.
+The script creates a change root jail on the backup server for a new user account named by USER_ACCOUNT.  The change root files will be created at the directory path identified by ABSOLUTE_CHROOT_PATH.  When the user account is created, a home directory is made under the change root file structure.  A symbloic link is also make in the OS level /home directory that links to the home directory in the chroot file structure.  This is done so the shared key used to login to the host system is available both within and out of the change root.
 
-After you run the above script you still need to place the public key you'll use to access the backup server in the file /home/USER_ACCOUNT/.ssh/authorized_keys.  If you place the public key in this .ssh directory and then rename it authorized_keys you should be good to go, assuming you're not logging into this account with other keys. The mode of the authorized_keys file needs to be 0600 to enable log in:
+After you run the above script you still need to place the public key you'll use to access the backup server in the file /home/USER_ACCOUNT/.ssh/authorized_keys. Instruction for generating the public key are below.  If you place the public key in this .ssh directory and then rename it authorized_keys you should be good to go.  The mode of the authorized_keys file needs to be 0600 to enable shared key log in:
 ```
 chmod 0600 /home/USER_ACCOUNT/.ssh/authorized_keys
 ```
 
 ## Configure sshd on the backup server to limit login to the change root
-These instruction have been tested with openssh-server on a ubuntu system.  The configuration file for the ssh server will be found at /etc/ssh/sshd_config. To restrict a user to the change root you add the following two lines to the bottome of the sshd_config file:
+These instruction have been tested with openssh-server on a ubuntu system.  The configuration file for the ssh server is found at /etc/ssh/sshd_config. To restrict a user to the change root you add the following two lines to the bottome of the sshd_config file:
 
 ```
 Match User USER_ACCOUNT
@@ -353,14 +353,14 @@ USER_ACCOUNT is the same USER_ACCOUNT name provided when creating the change roo
 ```
 systemctl restart ssh
 ```
-Once you have the ssh key pair in place, this USER_ACCOUNT should be restricted in the change root upon ssh login.
+Once you have the ssh key pair in place, logging in to this USER_ACCOUNT will be restricted in the change root directory structure.
 
 ## Creating the SSH Key pair on the source machine
-The ssh key pair can be created utilize ssh-keygen command.  It's wise to create a key that is used just for this backup process.  In my case I have multiple users backing up to the same backup server.  I create a change root on the backup server for each user and give each user their own key pair. Alternatively you could allow all users to backup under one change root with their own key pair, or sharing the same key pair. You generate a key like this:
+The ssh key pair can be created utilize ssh-keygen command.  It's wise to create a key that is used just for this backup process.  In my case I have multiple users backing up to the same backup server.  I create a change root on the backup server for each user and give each user their own key pair. Alternatively you could allow all users to backup under one change root with their own key pair, or sharing the same key pair. You generate a key pair like this:
 ```
 ssh-keygen -t ed25519 -C "KEY_PAIR_FILENAME"
 ```
-This creates two files, one name KEY_PAIR_FILENAME and one name KEY_PAIR_FILENAME.pub.  The first file go to the machine that contains files to backup and the second is added to the authorized_keys file for the destination user account, under their .ssh directory, on the backup server.
+This creates two files, one name KEY_PAIR_FILENAME and one name KEY_PAIR_FILENAME.pub.  The first file is the private key and is used on the machine that will execute the backup.  The second file is the public key which is added to the authorized_keys file for the destination user account, under their .ssh directory, on the backup server.
 
 ### Access the backup server with the key pair
 You should be able to login to the change root on the backup server now utilizing the key via:
