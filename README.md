@@ -273,7 +273,7 @@ Though out this section, with exception of inside the script provided in this se
 
 ### Create the change root directory
 
-The following script can be used to set up the change root jail on the destination backup server.  The stript creates a change root directory structure with all the files required by the rsync-time-backup.sh script to access an remote backup server.
+The following script can be used to set up the change root jail on the destination backup server.  The stript creates a change root directory structure with all the files required by the rsync-time-backup.sh script to access an remote backup server.  The script has been tested with Ubuntu 24.04 on X64 and with Debian bookworm on aarch64.
 
 ```
 #!/bin/bash
@@ -306,14 +306,19 @@ for i in $( ldd $executables | grep -v dynamic | cut -d " " -f 3 | sed 's/://' |
     cp -v --parents $i $CHROOT
   done
 
-# ARCH amd64
+# X64 ARCH amd64
 if [ -f /lib64/ld-linux-x86-64.so.2 ]; then
    cp -v -r -L --parents /lib64/ld-linux-x86-64.so.2 $CHROOT
 fi
 
-# ARCH i386
+# X86 ARCH i386
 if [ -f  /lib/ld-linux.so.2 ]; then
    cp -v -r -L --parents /lib/ld-linux.so.2 $CHROOT
+fi
+
+# ARM ARCH aarch64
+if [ -f  /lib/ld-linux-aarch64.so.1 ]; then
+   cp -v -r -L --parents  /lib/ld-linux-aarch64.so.1 $CHROOT
 fi
 
 useradd -s /bin/bash $2
