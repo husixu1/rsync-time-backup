@@ -484,7 +484,7 @@ rbkp.sanitize_cfg() {
         _rc[SSH_HOST]="${BASH_REMATCH[3]}"
         _rc[SSH_"$loc"]="${BASH_REMATCH[4]}"
         _rc[SSH_CMD]="ssh ${_rc[SSH_PORT]:+"-p ${_rc[SSH_PORT]} "}"
-        _rc[SSH_CMD]+="${_rc[ID_RSA]:+"-i ${_rc[ID_RSA]@Q} "}"
+        _rc[SSH_CMD]+="${_rc[ID_RSA]:+"-i ${_rc[ID_RSA]} "}"
         _rc[SSH_CMD]+="${BASH_REMATCH[1]}${_rc[SSH_HOST]}"
         _rc[SSH_"$loc"_PREFIX]="${BASH_REMATCH[1]}${_rc[SSH_HOST]}:"
     done
@@ -561,8 +561,8 @@ rbkp.check_filesystems() {
 
     rbkp.test_f "$1" "${_rc[DEST_DIR]}/${_rc[MARKER_NAME]}" || {
         local info_cmd="${_rc[SSH_DEST_DIR_PREFIX]:+${_rc[SSH_CMD]} bash <<< }"
-        info_cmd+="mkdir -p -- ${_rc[DEST_DIR]@Q}; "
-        info_cmd+="touch ${_rc[DEST_DIR]@Q}/${_rc[MARKER_NAME]@Q};"
+        info_cmd+="\"mkdir -p -- ${_rc[DEST_DIR]@Q}; "
+        info_cmd+="touch ${_rc[DEST_DIR]@Q}/${_rc[MARKER_NAME]@Q};\""
         rbkp.inf \
             "If it is intended as a backup folder, create the marker with:" \
             "$info_cmd"
