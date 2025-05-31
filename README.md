@@ -273,69 +273,9 @@ Though out this section, with exception of inside the script provided in this se
 
 ### Create the change root directory
 
-The following script can be used to set up the change root jail on the destination backup server.  The stript creates a change root directory structure with all the files required by the rsync-time-backup.sh script to access an remote backup server.  The script has been tested with Ubuntu 24.04 on X64 and with Debian bookworm on aarch64.
+The mk-chroot script can be used to set up the change root jail on the destination backup server.  The stript creates a change root directory structure with all the files required by the rsync-time-backup.sh script to access an remote backup server.  The script has been tested with Ubuntu 24.04 on X64 and with Debian bookworm on aarch64.
 
-```
-#!/bin/bash
-# This script can be used to create simple chroot environment
-# Modification of a script Written by LinuxConfig.org
-# (c) 2020 LinuxConfig under GNU GPL v3.0+
-
-#!/bin/bash
-
-CHROOT=$1
-mkdir -p $CHROOT
-mkdir -p $CHROOT/"dev"
-mkdir -p $CHROOT/"etc"
-mkdir -p $CHROOT/"home"
-mkdir -p $CHROOT/"bin"
-mkdir -p $CHROOT/"usr/bin"
-chown -R root:root $CHROOT
-chmod 755 $CHROOT
-cd $CHROOT/"dev"
-pwd
-mknod -m 666 null c 1 3
-mknod -m 666 tty c 5 0
-mknod -m 666 zero c 1 5
-mknod -m 666 random c 1 8
-
-executables=`ls /bin/{bash,echo,ls,cat,rm,mkdir,rmdir,date} /usr/bin/{basename,rsync,df,head,ln,tail,touch,test,sort}`
-
-for i in $( ldd $executables | grep -v dynamic | cut -d " " -f 3 | sed 's/://' | sort | uniq )
-  do
-    cp -v --parents $i $CHROOT
-  done
-
-# X64 ARCH amd64
-if [ -f /lib64/ld-linux-x86-64.so.2 ]; then
-   cp -v -r -L --parents /lib64/ld-linux-x86-64.so.2 $CHROOT
-fi
-
-# X86 ARCH i386
-if [ -f  /lib/ld-linux.so.2 ]; then
-   cp -v -r -L --parents /lib/ld-linux.so.2 $CHROOT
-fi
-
-# ARM ARCH aarch64
-if [ -f  /lib/ld-linux-aarch64.so.1 ]; then
-   cp -v -r -L --parents  /lib/ld-linux-aarch64.so.1 $CHROOT
-fi
-
-useradd -s /bin/bash $2
-mkdir -p $CHROOT/home/$2
-chown $2: $CHROOT/home/$2
-chmod 700 $CHROOT/home/$2
-mkdir  -p $CHROOT/home/$2/.ssh
-chown  $2: $CHROOT/home/$2/.ssh
-chmod  700 $CHROOT/home/$2/.ssh
-
-ln -s $CHROOT/home/$2 /home/$2
-cp -L -v /etc/{passwd,group,mtab} $CHROOT/etc
-
-echo "Chroot jail is ready. To access it execute: chroot $CHROOT"
-```
-
-Save the above script in a file name mk-chroot on the backup server. You need to make the script executable.  You execute it with two command line parameters, ABSOLUTE_CHROOT_PATH and USER_ACCOUNT:
+You execute the mk-chroot script with two command line parameters, ABSOLUTE_CHROOT_PATH and USER_ACCOUNT:
 ```
 ./mk-chroot ABSOLUTE_CHROOT_PATH USER_ACCOUNT
 ```
