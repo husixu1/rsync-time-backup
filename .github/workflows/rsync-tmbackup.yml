@@ -14,7 +14,7 @@ jobs:
   run-tests:
     runs-on: ubuntu-latest
     env:
-      BASH_UNIT_VER: v2.1.0
+      BASH_UNIT_VER: v2.3.2
       SHFMT_VER: v3.7.0
       RSYNC_VER: 3.2
       BUNDLE_DEPLOYMENT: false
@@ -31,7 +31,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: deps
-          key: ${{runner.os}}-deps-${{env.BASH_UNIT_VER}}-${{env.SHFMT_VER}}
+          key: ${{runner.os}}-deps-${{env.BASH_UNIT_VER}}-${{env.SHFMT_VER}}-${{env.RSYNC_VER}}
       - name: Setup bashcov
         run: |
           mkdir -p deps && cd deps
