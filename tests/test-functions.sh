@@ -144,6 +144,7 @@ test_run() {
     # Make sure ssh is executed
     _echo() { echo "ssh ${FAKE_PARAMS[*]}"; }
     fake ssh _echo
+    export -f _echo
     output="$(rbkp.run cfg "touch" "$SRC_ROOT/jam")"
     assert_matches "ssh .*" "$output"
 } >&"$_OUT" 2>&1
@@ -265,9 +266,45 @@ test_check_filesystems_marker_file() {
 
     # Fail if no marker file
     rm -f "$DST_ROOT/backup.marker"
+    local stderr='' stdout=''
+    stdout="$(rbkp.check_filesystems cfg sess 2>/dev/null)"
+    assert_not_equals 0 $?
+    assert_not_matches '.*".*".*' "$stdout"
     stderr="$(rbkp.check_filesystems cfg sess 2>&1 >/dev/null)"
     assert_not_equals 0 $?
     assert_matches '.*marker file not found.*' "$stderr"
+} >&"$_OUT"
+
+test_check_filesystems_marker_file_remote() {
+    local -A cfg=() sess=()
+    util.make_fake_cfg_sess cfg sess "$SRC_ROOT" "$SSH_HOST:$DST_ROOT"
+
+    # Regular execution should succeed
+    rbkp.check_filesystems cfg sess
+    assert_equals 0 $?
+
+    # Fail if no marker file
+    rm -f "$DST_ROOT/backup.marker"
+    local stderr='' stdout=''
+    stdout="$(rbkp.check_filesystems cfg sess 2>/dev/null)"
+    assert_not_equals 0 $?
+    assert_matches '.*".*".*' "$stdout"
+    stderr="$(rbkp.check_filesystems cfg sess 2>&1 >/dev/null)"
+    assert_not_equals 0 $?
+    assert_matches '.*marker file not found.*' "$stderr"
+} >&"$_OUT"
+
+test_check_cfg_ssh_id_rsa_with_spaces() {
+    local -A cfg=() sess=()
+
+    # copy ssh keypair
+    assert "cp '$HOME/.ssh/id_rsa' '$TEST_ROOT/super private key'"
+    util.make_fake_cfg_sess cfg sess \
+        "$SRC_ROOT" "$SSH_HOST:$DST_ROOT" -i "$TEST_ROOT/super private key"
+
+    # Execution should succeed
+    rbkp.check_filesystems cfg sess
+    assert_equals 0 $?
 } >&"$_OUT"
 
 test_check_filesystems_hardlinks() {
@@ -543,7 +580,8 @@ test_post_backup_hook_failed() {
 
 test_filter_cd() {
     local -A cfg=() sess=()
-    local stdout="$( #
+    local stdout=''
+    stdout="$( #
         rbkp.__filter_cd <<EOF
 
 >f.st...... /asdf

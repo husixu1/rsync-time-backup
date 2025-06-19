@@ -341,7 +341,7 @@ rbkp.__run() {
     # If non prefix set, run locally (in a subshell, to prevent var pollution)
     [[ ${_rc[$2]} ]] || { (eval "$3") && return $? || return $?; }
     # For ssh, we need to pipe in the commands non-bash login shell
-    ${_rc[SSH_CMD]} "bash --noprofile --norc" <<<"$3"
+    $BASH -c "${_rc[SSH_CMD]} 'bash --noprofile --norc'" <<<"$3"
 }
 # $1: Config dict name
 # ${*:2}: Command to run
@@ -560,9 +560,10 @@ rbkp.check_filesystems() {
     local -n _rc="$1" _ss="$2"
 
     rbkp.test_f "$1" "${_rc[DEST_DIR]}/${_rc[MARKER_NAME]}" || {
-        local info_cmd="${_rc[SSH_DEST_DIR_PREFIX]:+${_rc[SSH_CMD]} bash <<< }"
+        local info_cmd="${_rc[SSH_DEST_DIR_PREFIX]:+${_rc[SSH_CMD]} bash <<< \"}"
         info_cmd+="mkdir -p -- ${_rc[DEST_DIR]@Q}; "
         info_cmd+="touch ${_rc[DEST_DIR]@Q}/${_rc[MARKER_NAME]@Q};"
+        info_cmd+="${_rc[SSH_DEST_DIR_PREFIX]:+\"}"
         rbkp.inf \
             "If it is intended as a backup folder, create the marker with:" \
             "$info_cmd"
