@@ -180,10 +180,8 @@ EOF
     }
     fake date _date
     export -f _date
-    set -x
     rscd.main -c "$TEST_ROOT/config"
     assert_equals 0 $?
-    set +x
     # 3 files: backup.marker, latest and the backup folder
     # shellcheck disable=SC2012
     assert_equals 3 "$(ls -d "$TEST_ROOT/b"/* | wc -l)"
